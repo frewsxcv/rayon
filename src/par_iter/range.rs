@@ -48,11 +48,14 @@ macro_rules! range_impl {
         }
 
         impl IndexedParallelIterator for RangeIter<$t> {
-            type Producer = Self;
-
-            fn into_producer(self) -> (Self::Producer, <Self::Producer as Producer>::Shared) {
+            fn into_producer<'p>(&'p mut self) -> (ProducerFor<'p, Self>, SharedFor<'p, Self>) {
                 (self, ())
             }
+        }
+
+        impl<'p> ProducerType<'p> for RangeIter<$t> {
+            type Producer = Self;
+            type ProducedItem = <Self::Producer as Producer>::Item;
         }
 
         impl Producer for RangeIter<$t> {

@@ -55,11 +55,14 @@ unsafe impl<'data, T: Send + 'data> ExactParallelIterator for SliceIterMut<'data
 }
 
 impl<'data, T: Send + 'data> IndexedParallelIterator for SliceIterMut<'data, T> {
-    type Producer = SliceMutProducer<'data, T>;
-
-    fn into_producer(self) -> (Self::Producer, ()) {
+    fn into_producer<'p>(&'p mut self) -> (ProducerFor<'p, Self>, SharedFor<'p, Self>) {
         (SliceMutProducer { slice: self.slice }, ())
     }
+}
+
+impl<'p, 'data, T: Send + 'data> ProducerType<'p> for SliceIterMut<'data, T> {
+    type Producer = SliceMutProducer<'p, T>;
+    type ProducedItem = <Self::Producer as Producer<'p>>::Item;
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -68,9 +71,9 @@ pub struct SliceMutProducer<'data, T: 'data + Send> {
     slice: &'data mut [T]
 }
 
-impl<'data, T: 'data + Send> Producer for SliceMutProducer<'data, T>
+impl<'p, 'data, T: 'data + Send> Producer<'p> for SliceMutProducer<'data, T>
 {
-    type Item = &'data mut T;
+    type Item = &'p mut T;
     type Shared = ();
 
     fn cost(&mut self, _: &Self::Shared, len: usize) -> f64 {

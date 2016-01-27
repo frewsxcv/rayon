@@ -52,13 +52,16 @@ unsafe impl<A,B> ExactParallelIterator for ZipIter<A,B>
 impl<A,B> IndexedParallelIterator for ZipIter<A,B>
     where A: IndexedParallelIterator, B: IndexedParallelIterator
 {
-    type Producer = ZipProducer<A::Producer, B::Producer>;
-
-    fn into_producer(self) -> (Self::Producer, <Self::Producer as Producer>::Shared) {
+    fn into_producer<'p>(&'p mut self) -> (ProducerFor<'p, Self>, SharedFor<'p, Self>) {
         let (a_producer, a_shared) = self.a.into_producer();
         let (b_producer, b_shared) = self.b.into_producer();
         (ZipProducer { p: a_producer, q: b_producer }, (a_shared, b_shared))
     }
+}
+
+impl<'p, A: IndexedParallelIterator, B: IndexedParallelIterator> ProducerType<'p> for ZipIter<A, B> {
+    type Producer = ZipProducer<ProducerFor<'p, A>, ProducerFor<'p, B>>;
+    type ProducedItem = <Self::Producer as Producer>::Item;
 }
 
 ///////////////////////////////////////////////////////////////////////////

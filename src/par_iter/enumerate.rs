@@ -50,26 +50,29 @@ unsafe impl<M> ExactParallelIterator for Enumerate<M>
 impl<M> IndexedParallelIterator for Enumerate<M>
     where M: IndexedParallelIterator,
 {
-    type Producer = EnumerateProducer<M::Producer>;
-
-    fn into_producer(self) -> (Self::Producer, <Self::Producer as Producer>::Shared) {
+    fn into_producer<'p>(&'p mut self) -> (ProducerFor<'p, Self>, SharedFor<'p, Self>) {
         let (base, shared) = self.base.into_producer();
         (EnumerateProducer { base: base, offset: 0 }, shared)
     }
 }
 
+impl<'p, M> ProducerType<'p> for Enumerate<M>
+    where M: IndexedParallelIterator,
+{
+    type Producer = EnumerateProducer<<M as ProducerType<'p>>::Producer>;
+    type ProducedItem = <Self::Producer as Producer<'p>>::Item;
+}
+
 ///////////////////////////////////////////////////////////////////////////
 // Producer implementation
 
-pub struct EnumerateProducer<M>
-    where M: Producer,
-{
+pub struct EnumerateProducer<M> {
     base: M,
     offset: usize,
 }
 
-impl<M> Producer for EnumerateProducer<M>
-    where M: Producer
+impl<'p, M> Producer<'p> for EnumerateProducer<M>
+    where M: Producer<'p>
 {
     type Item = (usize, M::Item);
     type Shared = M::Shared;

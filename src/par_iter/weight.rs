@@ -50,12 +50,15 @@ unsafe impl<M: ExactParallelIterator> ExactParallelIterator for Weight<M> {
 }
 
 impl<M: IndexedParallelIterator> IndexedParallelIterator for Weight<M> {
-    type Producer = WeightProducer<M::Producer>;
-
-    fn into_producer(self) -> (Self::Producer, <Self::Producer as Producer>::Shared) {
+    fn into_producer<'p>(&'p mut self) -> (ProducerFor<'p, Self>, SharedFor<'p, Self>) {
         let (base, shared) = self.base.into_producer();
         (WeightProducer { base: base }, (shared, self.weight))
     }
+}
+
+impl<'p, M: IndexedParallelIterator> ProducerType<'p> for Weight<M> {
+    type Producer = WeightProducer<ProducerFor<'p, M>>;
+    type ProducedItem = <Self::Producer as Producer>::Item;
 }
 
 ///////////////////////////////////////////////////////////////////////////

@@ -66,12 +66,22 @@ impl<M, MAP_OP, R, P> IndexedParallelIterator for Map<M, MAP_OP>
           R: Send,
           P: Producer<Item=M::Item>,
 {
-    type Producer = MapProducer<P, MAP_OP, R>;
+    // type Producer = MapProducer<P, MAP_OP, R>;
 
-    fn into_producer(self) -> (Self::Producer, (P::Shared, MAP_OP)) {
+    fn into_producer<'p>(&'p mut self) -> (ProducerFor<'p, Self>, SharedFor<'p, Self>) {
         let (base, shared) = self.base.into_producer();
         (MapProducer { base: base, phantoms: PhantomType::new() }, (shared, self.map_op))
     }
+}
+
+impl<'p, M, MAP_OP, R, P> ProducerType<'p> for Map<M, MAP_OP>
+    where M: IndexedParallelIterator<Producer=P>,
+          MAP_OP: Fn(M::Item) -> R + Sync,
+          R: Send,
+          P: Producer<Item=M::Item>,
+{
+    type Producer = MapProducer<P, MAP_OP, R>;
+    type ProducedItem = <Self::Producer as Producer>::Item;
 }
 
 ///////////////////////////////////////////////////////////////////////////

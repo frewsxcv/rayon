@@ -7,12 +7,23 @@ use join;
 use super::IndexedParallelIterator;
 use super::len::*;
 
+pub trait ProducerType<'produce> {
+    type Producer: Producer<'produce, Item=Self::ProducedItem>;
+    type ProducedItem;
+}
+
+pub type ProducerFor<'produce, M> where M: IndexedParallelIterator =
+    <M as ProducerType<'produce>>::Producer;
+
+pub type SharedFor<'produce, M> where M: IndexedParallelIterator =
+    <ProducerFor<'produce, M> as Producer<'produce>>::Shared;
+
 /// A producer which will produce a fixed number of items N. This is
 /// not queryable through the API; the consumer is expected to track
 /// it.
-pub trait Producer: Send {
+pub trait Producer<'produce>: Send {
     type Item;
-    type Shared: Sync;
+    type Shared: Sync + 'produce;
 
     /// Cost to produce `len` items.
     fn cost(&mut self, shared: &Self::Shared, len: usize) -> f64;
@@ -80,14 +91,14 @@ pub fn bridge<'c,PAR_ITER,C>(mut par_iter: PAR_ITER,
     bridge_producer_consumer(len, cost, producer, &producer_shared, consumer, consumer_shared)
 }
 
-fn bridge_producer_consumer<'c,P,C>(len: usize,
+fn bridge_producer_consumer<'p, 'c,P,C>(len: usize,
                                     cost: f64,
                                     mut producer: P,
-                                    producer_shared: &P::Shared,
+                                    producer_shared: &'p P::Shared,
                                     mut consumer: C,
                                     consumer_shared: &'c C::Shared)
                                     -> C::Result
-    where P: Producer, C: Consumer<'c, Item=P::Item>
+    where P: Producer<'p>, C: Consumer<'c, Item=P::Item>
 {
     unsafe { // asserting that we call the `op` methods in correct pattern
         if len > 1 && cost > THRESHOLD {
