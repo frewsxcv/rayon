@@ -1,4 +1,3 @@
-#[cfg(not(feature = "nightly"))] use libc;
 use job::{Job, JobRef};
 use std::any::Any;
 use std::cell::UnsafeCell;
@@ -8,6 +7,7 @@ use std::ptr;
 use std::sync::atomic::{AtomicUsize, AtomicPtr, Ordering};
 use std::sync::{Condvar, Mutex};
 use thread_pool::{self, WorkerThread};
+use unwind;
 
 #[cfg(test)]
 mod test;
@@ -59,7 +59,6 @@ impl<'scope> Scope<'scope> {
         }
     }
 
-    #[cfg(feature = "nightly")]
     fn job_panicked(&self, err: Box<Any + Send + 'static>) {
         // capture the first error we see, free the rest
         let nil = ptr::null_mut();
@@ -111,20 +110,10 @@ impl<'scope> Scope<'scope> {
         if !panic.is_null() {
             unsafe {
                 let value: Box<Box<Any + Send + 'static>> = mem::transmute(panic);
-                propagate_panic(*value);
+                unwind::resume_unwinding(*value);
             }
         }
     }
-}
-
-#[cfg(nightly)]
-fn propagate_panic(value: Box<Any + Send + 'static>) {
-    ::std::panic::propagate(value);
-}
-
-#[cfg(not(nightly))]
-fn propagate_panic(_value: Box<Any + Send + 'static>) {
-    panic!("scope() job panicked")
 }
 
 struct HeapJob<'scope, BODY>
@@ -173,30 +162,14 @@ impl<'scope, BODY> HeapJob<'scope, BODY>
 impl<'scope, BODY> Job for HeapJob<'scope, BODY>
     where BODY: FnOnce(&Scope<'scope>) + 'scope
 {
-    #[cfg(not(feature = "nightly"))]
     unsafe fn execute(&self) {
-        let abort = AbortIfPanic;
-        let scope = &*self.scope;
-        let func = (*self.func.get()).take().unwrap();
-        let worker_thread = &*WorkerThread::current();
-        let start_count = worker_thread.spawn_count().get();
-        func(&*scope);
-        mem::forget(abort);
-        (*scope).job_completed_ok();
-        Self::pop_jobs(worker_thread, start_count);
-    }
-
-    #[cfg(feature = "nightly")]
-    unsafe fn execute(&self) {
-        use std::panic::{recover, AssertRecoverSafe};
-
         let scope = &*self.scope;
         let worker_thread = &*WorkerThread::current();
         let start_count = worker_thread.spawn_count().get();
-        let func = (*self.func.get()).take().unwrap();
 
         // Recover-safe is ok because we propagate the panic.
-        match recover(AssertRecoverSafe(|| func(&*scope))) {
+        let func = (*self.func.get()).take().unwrap();
+        match unwind::halt_unwinding(|| func(&*scope)) {
             Ok(()) => { (*scope).job_completed_ok(); }
             Err(err) => { (*scope).job_panicked(err); }
         }
@@ -209,18 +182,4 @@ impl<'scope, BODY> Job for HeapJob<'scope, BODY>
     }
 }
 
-
-#[cfg(not(feature = "nightly"))]
-struct AbortIfPanic;
-
-#[cfg(not(feature = "nightly"))]
-impl Drop for AbortIfPanic {
-    fn drop(&mut self) {
-        // If you're not on nightly, just panic inside the
-        // drop so as to force an abort.
-        unsafe {
-            libc::abort();
-        }
-    }
-}
 

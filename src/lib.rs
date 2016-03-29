@@ -18,6 +18,7 @@ pub mod prelude;
 #[cfg(feature = "unstable")]
 mod scope;
 mod thread_pool;
+mod unwind;
 mod util;
 
 pub use api::Configuration;
