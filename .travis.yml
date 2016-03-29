@@ -9,10 +9,10 @@ script:
     cargo build --features nightly
   - |
     [ $TRAVIS_RUST_VERSION != nightly ] ||
-    cargo test
+    cargo test --features "unstable"
   - |
     [ $TRAVIS_RUST_VERSION != nightly ] ||
-    cargo test --features nightly
+    cargo test --features "nightly unstable"
   - cd demo/quicksort && cargo build && cd ../../
   - cd demo/sieve && cargo run --release && cd ../../
   - |
