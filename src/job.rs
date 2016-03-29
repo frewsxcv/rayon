@@ -81,8 +81,7 @@ impl<L:Latch,F,R> JobImpl<L,F,R>
         // We assert that func is recover-safe since it doesn't touch any of
         // our data and we will be propagating the panic back to the user at
         // the join() call.
-        let wrapper = AssertRecoverSafe::new(func);
-        match panic::recover(move || wrapper.into_inner()()) {
+        match panic::recover(AssertRecoverSafe(|| func())) {
             Ok(x) => JobResult::Ok(x),
             Err(x) => JobResult::Panic(x),
         }

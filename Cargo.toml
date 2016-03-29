@@ -11,6 +11,7 @@ documentation = "http://nikomatsakis.github.io/rayon/rayon/"
 rand = "0.3"
 num_cpus = "0.2.10"
 deque = "0.3.1"
+libc = "0.2"
 
 [dev-dependencies]
 compiletest_rs = "0.1.1"

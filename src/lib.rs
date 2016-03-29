@@ -2,6 +2,7 @@
 #![cfg_attr(feature = "nightly", feature(recover, std_panic, panic_propagate))]
 
 extern crate deque;
+extern crate libc;
 extern crate num_cpus;
 extern crate rand;
 
@@ -14,6 +15,8 @@ mod job;
 pub mod par_iter;
 pub mod prelude;
 #[cfg(test)] mod test;
+#[cfg(feature = "unstable")]
+mod scope;
 mod thread_pool;
 mod util;
 
@@ -23,3 +26,5 @@ pub use api::dump_stats;
 pub use api::initialize;
 pub use api::join;
 pub use api::ThreadPool;
+#[cfg(feature = "unstable")]
+pub use scope::{scope, Scope};
